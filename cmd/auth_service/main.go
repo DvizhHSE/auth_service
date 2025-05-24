@@ -2,9 +2,13 @@ package main
 
 import (
 	"auth_service/internal/config"
+	"auth_service/internal/handler"
+	"auth_service/internal/service"
+	"auth_service/internal/storage"
 	"flag"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
 )
 
@@ -27,13 +31,23 @@ func main() {
 	cfg := config.MustLoadConfig(configPath)
 
 	lgr := setupLogger(cfg.Env)
+
 	lgr.Info("started auth service")
 
-	//INIT LOGGER
+	conn, err := storage.NewPostgresStorage(cfg.DbURL)
+	if err != nil {
+		log.Fatalf("failed to connect to db, err: %w", err)
+	}
 
-	//INIT DB
+	serviceLayer := service.NewService(conn)
 
-	//INIT SERVER
+	hand := handler.NewHandler(serviceLayer, lgr)
+
+	router := hand.InitRoutes()
+
+	if err := http.ListenAndServe(cfg.Address, router); err != nil {
+		log.Fatalf("error while running server %s", err.Error())
+	}
 }
 
 func setupLogger(env string) *slog.Logger {

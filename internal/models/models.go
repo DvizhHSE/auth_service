@@ -12,10 +12,11 @@ type Credentials struct {
 }
 
 type User struct {
-	ID        uuid.UUID
-	Email     string
+	ID        uuid.UUID `json:"id"`
+	Email     string    `json:"email"`
+	Password  string    `json:"password"`
 	CreatedAt time.Time
-	Roles     []string
+	Role      string `json:"role"`
 }
 
 type RefreshToken struct {
@@ -26,4 +27,6 @@ type RefreshToken struct {
 	CreatedAt time.Time
 	UsedAt    *time.Time
 	Revoked   bool
+
+	Token string `json:"token,omitempty"`
 }

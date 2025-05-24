@@ -7,17 +7,29 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/gofrs/uuid"
 )
 
 const (
-	jwtTokenTTL = 5 //minutes if jwt token expirationTime
+	jwtTokenTTL     = 5  //minutes if jwt token expirationTime
+	refreshTokenTTL = 10 //days of refresh token ttl
 )
 
 type Service interface {
-	CreateUser(ctx context.Context, email, passwordHash string) (models.User, error)
-	Login(ctx context.Context, email, password string) (string, models.RefreshToken)
+	CreateUser(ctx context.Context, email, password string) (models.User, error)
+	Login(ctx context.Context, email, password string) (string, models.RefreshToken, error)
 	ListUsers(ctx context.Context) ([]models.User, error)
-	GetCredentialsByEmail(ctx context.Context, email string) (models.Credentials, error)
+
+	AssignRole(ctx context.Context, userID uuid.UUID, role string) error
+	RemoveRole(ctx context.Context, userID uuid.UUID, role string) error
+	GetUserRole(ctx context.Context, userID uuid.UUID) (string, error)
+	GetUserByID(ctx context.Context, userID uuid.UUID) (models.User, error)
+
+	RefreshTokens(ctx context.Context, refreshTokenID uuid.UUID, secret string) (string, models.RefreshToken, error)
+	RemoveAllTokens(ctx context.Context, userID uuid.UUID) error
+
+	Close()
 }
 
 type service struct {
@@ -59,7 +71,7 @@ func (s *service) Login(ctx context.Context, email, password string) (string, mo
 		return "", models.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	if ok := auth.CheckPasswordHash(userCredentials.PasswordHash, password); !ok {
+	if ok := auth.CheckPasswordHash(password, userCredentials.PasswordHash); !ok {
 		return "", models.RefreshToken{}, fmt.Errorf("%s: wrong password", op)
 	}
 
@@ -68,13 +80,80 @@ func (s *service) Login(ctx context.Context, email, password string) (string, mo
 		return "", models.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	jwtToken, err := auth.GenerateJWT(user.ID, time.Minute*jwtTokenTTL)
+	jwtToken, err := auth.GenerateJWT(user.ID, user.Role, user.Email, time.Minute*jwtTokenTTL)
 	if err != nil {
 		return "", models.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
 	}
 
+	refreshToken, err := auth.GenerateAndStoreRefreshToken(ctx, s.storage, user.ID)
+	if err != nil {
+		return "", models.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return jwtToken, refreshToken, nil
+
 }
 
-func (s *service) GetCredentialsByEmail(ctx context.Context, email string) (models.Credentials, error) {
-	return models.Credentials{}, nil
+func (s *service) ListUsers(ctx context.Context) ([]models.User, error) {
+	return s.storage.ListUsers(ctx)
+}
+
+func (s *service) AssignRole(ctx context.Context, userID uuid.UUID, role string) error {
+	return s.storage.AssignRole(ctx, userID, role)
+}
+
+func (s *service) RemoveRole(ctx context.Context, userID uuid.UUID, role string) error {
+	return s.storage.RemoveRole(ctx, userID, role)
+}
+
+func (s *service) GetUserRole(ctx context.Context, userID uuid.UUID) (string, error) {
+	return s.storage.GetUserRole(ctx, userID)
+}
+
+func (s *service) RefreshTokens(ctx context.Context, refreshTokenID uuid.UUID, secret string) (string, models.RefreshToken, error) {
+	const op = "service.RefreshTokens"
+
+	rt, err := s.storage.GetLatestRefreshToken(ctx, refreshTokenID)
+	if err != nil {
+		return "", models.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if time.Since(rt.CreatedAt) > 24*time.Hour*refreshTokenTTL {
+		return "", models.RefreshToken{}, fmt.Errorf("%s: refresh token expired", op)
+	}
+
+	if ok := auth.CheckRefreshToken(secret, rt.TokenHash); !ok {
+		return "", models.RefreshToken{}, fmt.Errorf("%s: invalid refresh token", op)
+	}
+
+	user, err := s.storage.GetUserByID(ctx, rt.UserID)
+	if err != nil {
+		return "", models.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	jwtToken, err := auth.GenerateJWT(user.ID, user.Role, user.Email, time.Minute*jwtTokenTTL)
+	if err != nil {
+		return "", models.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	refreshToken, err := auth.GenerateAndStoreRefreshToken(ctx, s.storage, user.ID)
+	if err != nil {
+		return "", models.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	_ = s.storage.RevokeRefreshToken(ctx, rt.ID)
+
+	return jwtToken, refreshToken, nil
+}
+
+func (s *service) RemoveAllTokens(ctx context.Context, userID uuid.UUID) error {
+	return s.storage.RemoveAllRefreshTokensForUser(ctx, userID)
+}
+
+func (s *service) GetUserByID(ctx context.Context, userID uuid.UUID) (models.User, error) {
+	return s.storage.GetUserByID(ctx, userID)
+}
+
+func (s *service) Close() {
+	s.storage.Close()
 }
