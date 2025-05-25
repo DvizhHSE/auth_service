@@ -1,0 +1,51 @@
+version: "3.9"
+
+
+services:
+    db:
+        image: postgres:15
+        container_name: postgres_container
+        restart: always
+        environment:
+            POSTGRES_USER: auth_user
+            POSTGRES_PASSWORD: auth_user
+            POSTGRES_DB: auth 
+        ports:
+            - "5432:5432"
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+    
+    auth_service:
+        image: auth_service:latest
+        build:
+            context: .
+        container_name: auth_service_container
+        ports:
+            - "8081:8081"
+        depends_on:
+            - db 
+            - migrate
+
+    migrate:
+        image: migrate/migrate
+        container_name: migrate
+        depends_on:
+            db:
+                condition: service_healthy
+        volumes:
+            - /Users/stipochka/auth_service/migration:/migrations
+        entrypoint: [ "migrate" ]
+        command:
+            [
+                "-source", "file:///migrations", # <-- THE FIX IS HERE!
+                "-database=postgres://auth_user:auth_user@db:5432/auth?sslmode=disable",
+                "up"
+            ]
+volumes:
+  pgdata:
+    

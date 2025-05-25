@@ -33,7 +33,7 @@ func GenerateJWT(userID uuid.UUID, role string, email string, ttl time.Duration)
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodPS512, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(jwtKey)
 }
 

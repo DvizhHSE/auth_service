@@ -34,7 +34,7 @@ func main() {
 
 	lgr.Info("started auth service")
 
-	conn, err := storage.NewPostgresStorage(cfg.DbURL)
+	conn, err := storage.NewPostgresStorage(cfg.DB)
 	if err != nil {
 		log.Fatalf("failed to connect to db, err: %w", err)
 	}

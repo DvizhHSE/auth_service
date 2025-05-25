@@ -73,7 +73,7 @@ func (p *PostgresStorage) GetUserByID(ctx context.Context, userID uuid.UUID) (mo
 	const op = "storage.GetUserByID"
 
 	var user models.User
-	query := fmt.Sprintf("SELECT id, email, role, created_at FROM %s WHERE id=$1;", usersTable)
+	query := fmt.Sprintf("SELECT id, email, user_role, created_at FROM %s WHERE id=$1;", usersTable)
 
 	err := p.db.QueryRow(ctx, query, userID).Scan(&user.ID, &user.Email, &user.Role, &user.CreatedAt)
 	if err != nil {

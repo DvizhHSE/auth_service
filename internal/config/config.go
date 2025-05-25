@@ -10,12 +10,8 @@ import (
 
 type Config struct {
 	Env        string `yaml:"env" env-default:"local"`
-	DB         `yaml:"db"`
+	DB         string `yaml:"db"`
 	HTTPServer `yaml:"http_server"`
-}
-
-type DB struct {
-	DbURL string `yaml:"db_url" env-default:"postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable"`
 }
 
 type HTTPServer struct {
