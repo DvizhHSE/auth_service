@@ -15,7 +15,7 @@ type Config struct {
 }
 
 type DB struct {
-	DbURL string `yaml:"db_url" env-default:"postgres://postgres:postgres@localhost:5432/auth?sslmode=disable"`
+	DbURL string `yaml:"db_url" env-default:"postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable"`
 }
 
 type HTTPServer struct {
