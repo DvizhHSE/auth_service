@@ -1,4 +1,3 @@
 env: "local"
-db: "postgres://auth_user:auth_user@db:5432/auth?sslmode=disable"
 http_server:
   address: "0.0.0.0:8081"

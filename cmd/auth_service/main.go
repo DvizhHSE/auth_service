@@ -10,6 +10,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -28,13 +30,23 @@ func main() {
 		log.Fatal("failed get config path from flags")
 	}
 
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("failed to load .env file %v", err)
+	}
+
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatal("db url can't be empty string")
+	}
+
 	cfg := config.MustLoadConfig(configPath)
 
 	lgr := setupLogger(cfg.Env)
 
 	lgr.Info("started auth service")
 
-	conn, err := storage.NewPostgresStorage(cfg.DB)
+	conn, err := storage.NewPostgresStorage(dbURL)
 	if err != nil {
 		log.Fatalf("failed to connect to db, err: %w", err)
 	}
