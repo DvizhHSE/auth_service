@@ -32,7 +32,7 @@ func main() {
 
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("failed to load .env file %v", err)
+		log.Println("failed to load .env file %v", err)
 	}
 
 	dbURL := os.Getenv("DB_URL")
