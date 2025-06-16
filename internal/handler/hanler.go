@@ -49,10 +49,10 @@ func AuthMiddleware(jwtKey []byte) gin.HandlerFunc {
 			return
 		}
 
-		c.Set("UserID", claims.ID) // string
+		c.Set("UserID", claims.UserID) // string
 		c.Set("Role", claims.Role)
 		c.Set("Email", claims.Email)
-
+		fmt.Println("userID", claims.ID)
 		c.Next()
 	}
 }
